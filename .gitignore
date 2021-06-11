@@ -1,4 +1,4 @@
-/data/word2vec
+/data/word2vec/*.vec
 /data/cluster/jsonBirchTrain.txt
 /__pycache__
 /.idea
