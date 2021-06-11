@@ -65,7 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--jsonDir', '-j', help='JSON数据所在文件夹',
                         default=r'data/resultJson')
     parser.add_argument('--birchTrain', '-b', help='生成的birch聚类训练文本',
-                        default=r'data/cluster/jsonBirchTrain.txt')
+                        default=r'data/cluster/jsonKmeansTrain.txt')
     parser.add_argument('--testName', '-t', help='生成的关键词提取测试文本',
                         default=r'data/test/jsonTest.txt')
     args = parser.parse_args()
