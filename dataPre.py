@@ -42,16 +42,6 @@ def main(jsonDir, birchTrain, testName):
     birchTrainFile.close()
     keywordExTestFile.close()
 
-def fenci(jsonName, vecTrainTxtName):
-    vecTrainTxt = open(vecTrainTxtName, 'w', encoding='utf-8')
-    with open(jsonName, 'r', encoding='utf-8') as load_f:
-        filesList = json.load(load_f)
-        for file in filesList:
-            vecTrainTxt.write(file['name'] + ' ')
-            seg_list = jieba.cut(file['text'])
-            vecTrainTxt.write(" ".join(seg_list) + '\n')
-    vecTrainTxt.close()
-
 def main2(clusterTrainJson, kmeansTrain, testJson, keywordTest):
     kmeansTrainFile = open(kmeansTrain, 'w', encoding='utf-8')
     keywordTestFile = open(keywordTest, 'w', encoding='utf-8')
@@ -83,6 +73,3 @@ if __name__ == '__main__':
     testJson = args.testJson
     keywordTest = args.keywordTest
     main2(clusterTrainJson, kmeansTrain, testJson, keywordTest)
-    # vecTrainJson = 'data/word2vec/data14-500xN.json'
-    # vecTrainTxtName = 'data/word2vec/jsonVecTrain.txt'
-    # fenci(vecTrainJson, vecTrainTxtName)
