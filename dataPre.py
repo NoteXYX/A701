@@ -1,6 +1,7 @@
 import json
 import os
 import argparse
+import jieba
 
 def search(folder, filters, allFiles):      # 搜索目录下的所有文件
     folders = os.listdir(folder)
@@ -41,35 +42,47 @@ def main(jsonDir, birchTrain, testName):
     birchTrainFile.close()
     keywordExTestFile.close()
 
-def main2(clusterJsonName, testJsonName, birchTrain, testName):
-    birchTrainFile = open(birchTrain, 'w', encoding='utf-8')
-    keywordExTestFile = open(testName, 'w', encoding='utf-8')
-    print('处理json文件%s......' % clusterJsonName)
-    # TODO
-    with open(clusterJsonName, 'r', encoding='utf-8') as cluster_f:
-        load_dict = json.load(cluster_f)
-        muluTxt = load_dict['目录文本']
-        label = load_dict['人物简介']['name']
-        birchTrainFile.write('%s ::  %s\n' % (label, muluTxt[i]['text']))
-    with open(testJsonName, 'r', encoding='utf-8') as test_f:
-        load_dict = json.load(test_f)
-        muluTxt = load_dict['目录文本']
-        label = load_dict['人物简介']['name']
-        keywordExTestFile.write('%s ::  %s\n' % (label, muluTxt[i]['text']))
-    birchTrainFile.close()
-    keywordExTestFile.close()
+def fenci(jsonName, vecTrainTxtName):
+    vecTrainTxt = open(vecTrainTxtName, 'w', encoding='utf-8')
+    with open(jsonName, 'r', encoding='utf-8') as load_f:
+        filesList = json.load(load_f)
+        for file in filesList:
+            vecTrainTxt.write(file['name'] + ' ')
+            seg_list = jieba.cut(file['text'])
+            vecTrainTxt.write(" ".join(seg_list) + '\n')
+    vecTrainTxt.close()
+
+def main2(clusterTrainJson, kmeansTrain, testJson, keywordTest):
+    kmeansTrainFile = open(kmeansTrain, 'w', encoding='utf-8')
+    keywordTestFile = open(keywordTest, 'w', encoding='utf-8')
+    with open(clusterTrainJson, 'r', encoding='utf-8') as load_f:
+        manList = json.load(load_f)
+        for man in manList:
+            kmeansTrainFile.write('%s ::  %s\n' % (man['name'], man['text']))
+    with open(testJson, 'r', encoding='utf-8') as load_f:
+        manList = json.load(load_f)
+        for man in manList:
+            keywordTestFile.write('%s ::  %s\n' % (man['name'], man['text']))
+    kmeansTrainFile.close()
+    keywordTestFile.close()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='UPKEM')
-    parser.add_argument('--jsonDir', '-j', help='JSON数据所在文件夹',
-                        default=r'data/resultJson')
-    parser.add_argument('--birchTrain', '-b', help='生成的birch聚类训练文本',
-                        default=r'data/cluster/jsonKmeansTrain.txt')
-    parser.add_argument('--testName', '-t', help='生成的关键词提取测试文本',
-                        default=r'data/test/jsonTest.txt')
+    parser.add_argument('--clusterTrainJson', '-c', help='用于聚类的JSON文件',
+                        default=r'data/cluster/resultJson.json')
+    parser.add_argument('--kmeansTrain', '-m', help='生成的kmeans聚类训练文本',
+                        default=r'data/cluster/kmeansTrain.txt')
+    parser.add_argument('--testJson', '-t', help='用于提取关键词的JSON文件',
+                        default=r'data/test/testJson.json')
+    parser.add_argument('--keywordTest', '-k', help='生成的关键词提取测试文本',
+                        default=r'data/test/keywordTest.txt')
     args = parser.parse_args()
-    jsonDir = args.jsonDir
-    birchTrain = args.birchTrain
-    testName = args.testName
-    main(jsonDir, birchTrain, testName)
+    clusterTrainJson = args.clusterTrainJson
+    kmeansTrain = args.kmeansTrain
+    testJson = args.testJson
+    keywordTest = args.keywordTest
+    main2(clusterTrainJson, kmeansTrain, testJson, keywordTest)
+    # vecTrainJson = 'data/word2vec/data14-500xN.json'
+    # vecTrainTxtName = 'data/word2vec/jsonVecTrain.txt'
+    # fenci(vecTrainJson, vecTrainTxtName)

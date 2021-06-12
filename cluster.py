@@ -8,6 +8,7 @@ from pylab import mpl
 from sklearn.manifold import TSNE
 from TSNE import plot_with_labels
 import json
+import pickle
 
 
 class patent_ZH:
@@ -18,7 +19,7 @@ class patent_ZH:
         self.docvec = None
         self.ipc = ipc
 
-def get_Birch_clusters(vectors,labels, dim=100):    # 根据Birch聚类后的标签labels整理各类的向量，存放在字典clusters
+def get_kmeans_clusters(vectors,labels, dim=100):    # 根据Birch聚类后的标签labels整理各类的向量，存放在字典clusters
     clusters = dict()
     for i in range(len(labels)):
         if int(labels[i]) not in clusters:
@@ -170,17 +171,26 @@ def myCluster(words, wordvecs, birch_train_name, TSNE_name, clusterNum):       #
     print('聚类结果为：')
     for label in class_num:
         print(str(label) + ':' + str(class_num[label]))
+    label_vecs = get_kmeans_clusters(test_vecs, cluster, dim=100)
+    centers = get_centers(label_vecs, dim=100)
+    # PCA降维
     tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000, method='exact')
     low_dim_embs = tsne.fit_transform(test_vecs)
-    label_vecs = get_Birch_clusters(low_dim_embs, cluster, dim=2)
-    centers = get_centers(label_vecs, dim=2)
+    label_low_vecs = get_kmeans_clusters(low_dim_embs, cluster, dim=2)
+    low_centers = get_centers(label_low_vecs, dim=2)
     clusterJson = {}
-    clusterJson['clusters'] = label_vecs
+    clusterJson['clusters'] = label_low_vecs
     clusterJson['centers'] = {}
     for i in range(n_clusters_):
-        clusterJson['centers'][i] = centers[i].tolist()
+        clusterJson['centers'][i] = low_centers[i].tolist()
     with open('data/cluster/cluster.json', 'w', encoding='utf-8') as jsonFile:
         json.dump(clusterJson, jsonFile, indent=4)
+    ########## 分成两个程序的话要保存下列变量 ##############################
+    # with open('data/cluster/model.pkl', 'wb') as modelFile:
+    #     pickle.dump(model, modelFile)
+    # with open('data/cluster/centers.pkl', 'wb') as centersFile:
+    #     pickle.dump(centers, centersFile)
+    ########## 分成两个程序的话要保存上述变量 ##############################
     ######################################### 画图 ##########################################
     mpl.rcParams['font.sans-serif'] = ['FangSong']  # 指定默认字体
     mpl.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
@@ -188,21 +198,23 @@ def myCluster(words, wordvecs, birch_train_name, TSNE_name, clusterNum):       #
     ######################################### 画图 ##########################################
     return model, centers
 
-def keyword_extraction_JSON(log_file_name, test_name, words, wordvecs, birch_model, centers, dim=100, topn=20):
-    log_file = open(log_file_name, 'w', encoding='utf-8')
+def keyword_extraction_JSON(logJsonName, test_name, words, wordvecs, kmeansModel, centers, dim=100, topn=20):
+    logJsonFile = open(logJsonName, 'w', encoding='utf-8')
+    testRes = []
     stopwords = get_stopwords('data/stopwords/stopwords_new.txt')
     keywordstop = get_stopwords('data/stopwords/mystop.txt')
     word2ind = {word: i for i, word in enumerate(words)}
     with open(test_name, 'r', encoding='utf-8') as test_file:
         num = 0
-        for test_line in test_file.readlines()[:200]:       ####################
+        for test_line in test_file.readlines():
+            curTestRes = {}
             line_split = test_line.split(' ::  ')
             if len(line_split) == 2:
                 content = line_split[1].strip()
                 print('%s人物介绍：' % line_split[0].strip())
                 print(content)
-                log_file.write('%s人物介绍：\n' % line_split[0].strip())
-                log_file.write('%s\n' % content)
+                curTestRes['name'] = line_split[0].strip()
+                curTestRes['content'] = content
                 test_line_words = list(jieba.cut(content))
                 line_words = list()
                 line_vecs = list()
@@ -215,45 +227,56 @@ def keyword_extraction_JSON(log_file_name, test_name, words, wordvecs, birch_mod
                 if len(line_vecs) < 1:
                     continue
                 ind2vec = get_index2vectors(word2ind, wordvecs, line_words)
-                most_label = get_most_label(line_vecs, birch_model)
+                most_label = get_most_label(line_vecs, kmeansModel)
+                curTestRes['clusterLabel'] = int(most_label[0])
                 center = centers[most_label]
                 sorted_index_distance = distance_sort(ind2vec, center, 'cos')
                 keyword_num = 0
+                curKws = []
                 for our_item in list(sorted_index_distance.items()):
                     our_word = words[our_item[0]]
                     our_dis = our_item[1]
-                    log_file.write('%s\n' % our_word)
+                    curKws.append(our_word)
                     print(our_word + '%f' % our_dis)
+                    print(curKws)
                     keyword_num += 1
                     if keyword_num >= topn:
                         break
+                curTestRes['keywords'] = curKws
                 print('------------------------------------------------------------------')
-                log_file.write('------------------------------------------------------------------\n')
                 num += 1
-    log_file.close()
+            testRes.append(curTestRes)
+    json.dump(testRes, logJsonFile, ensure_ascii=False, indent=4)
+    logJsonFile.close()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='UPKEM')
     parser.add_argument('--embedding_file', '-e', help='词嵌入模型',
-                        default=r'data/word2vec/all_rm_abstract_100_mincount1.vec')
-    parser.add_argument('--birch_train_name', '-b', help='聚类训练文件',
-                        default=r'data/cluster/jsonBirchTrain.txt')
-    parser.add_argument('--log_file_name', '-l', help='日志文件名',
-                        default=r'data/log/jsonTestLog.txt')
+                        default=r'data/word2vec/jsonVec.vec')
+    parser.add_argument('--kmeans_train_name', '-k', help='聚类训练文件',
+                        default=r'data/cluster/kmeansTrain.txt')
+    parser.add_argument('--logJsonName', '-l', help='关键词提取JSON文件名',
+                        default=r'data/log/logJson.json')
     parser.add_argument('--test_name', '-t', help='关键词提取测试文本',
-                        default=r'data/test/jsonTest.txt')
+                        default=r'data/test/keywordTest.txt')
     parser.add_argument('--clusterNum', '-c', help='Kmeans聚类簇个数',
                         default=3)
     parser.add_argument('--TSNE_name', '-n', help='聚类结果图位置',
                         default=r'data/figs/JSONcluster.png')
     args = parser.parse_args()
     embedding_name = args.embedding_file
-    birch_train_name = args.birch_train_name
-    log_file_name = args.log_file_name
+    kmeans_train_name = args.kmeans_train_name
+    logJsonName = args.logJsonName
     test_name = args.test_name
     clusterNum = args.clusterNum
     TSNE_name = args.TSNE_name
     words, wordvecs = read(embedding_name, dtype=float)
-    birch_model, centers = myCluster(words, wordvecs, birch_train_name, TSNE_name, clusterNum)
-    # keyword_extraction_JSON(log_file_name, test_name, words, wordvecs, birch_model, centers)
+    ########## 分成两个程序的话要保存下列变量 ##############################
+    # with open('data/cluster/words.pkl', 'wb') as wordsFile:
+    #     pickle.dump(words, wordsFile)
+    # with open('data/cluster/wordvecs.pkl', 'wb') as wordvecsFile:
+    #     pickle.dump(wordvecs, wordvecsFile)
+    ########## 分成两个程序的话要保存上述变量 ##############################
+    kmeans_model, centers = myCluster(words, wordvecs, kmeans_train_name, TSNE_name, clusterNum)
+    keyword_extraction_JSON(logJsonName, test_name, words, wordvecs, kmeans_model, centers)

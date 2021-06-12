@@ -28,4 +28,4 @@ if __name__ == '__main__':
     model.save(outp1)
     model.wv.save_word2vec_format(outp2, binary=False)
     # python train_word2vec_model.py D:\PycharmProjects\Dataset\keywordEX\patent\all\all_fc_rm_abstract_PKU.txt D:\PycharmProjects\Dataset\keywordEX\patent\word2vec\all_rm_abstract_100_mincount1_PKU.model D:\PycharmProjects\Dataset\keywordEX\patent\word2vec\all_rm_abstract_100_mincount1_PKU.vec
-    # python3 train_word2vec_model.py ../data/SE2010_train.txt ../data/model/SE2010_100.model ../data/model/SE2010_100.vector
+    # python3 train_word2vec_model.py data/word2vec/jsonVecTrain.txt data/word2vec/jsonVec.model data/word2vec/jsonVec.vec
